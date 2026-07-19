@@ -1,7 +1,10 @@
-use pulldown_cmark::{Event, HeadingLevel, LinkType, Parser, Tag, TagEnd};
+//! Some basic release engineering.
+
+use pulldown_cmark::{Event, HeadingLevel, Parser, Tag, TagEnd};
 use std::collections::HashSet;
 use std::range::Range;
 
+/// Gets the markdown (suitable for a GitHub release)
 fn extract_version_section(input: &str, version: &str) -> Option<String> {
     // Collect reference definition source spans before consuming the parser.
     let parser = Parser::new(input);
@@ -47,6 +50,7 @@ fn extract_version_section(input: &str, version: &str) -> Option<String> {
                     // We keep going so that we can check there weren't two matching headers.
                 }
             }
+            // The header contains arbitrary markdown. Skip past it.
             Event::End(TagEnd::Heading { .. }) if in_header => {
                 in_header = false;
                 in_section = true;
@@ -57,7 +61,10 @@ fn extract_version_section(input: &str, version: &str) -> Option<String> {
                 title: _,
                 id,
             }) if in_section => {
-                // Get the actual full title text. We only are rewriting the GitHub URLs, so it doesn't matter if it doesn't really work.
+                // In theory, the link can contain arbitrary markdown, so cmark-pulldown pull-parses it.
+                // However, we are only rewriting the GitHub URLs, so we don't actually care about that inner markdown,
+                // so we can use a fragile hack.
+                // Get the actual full title text. We only are rewriting the GitHub URLs, so it doesn't matter that this is fragile.
                 let Some((link_title, _)) = input[range]
                     .strip_prefix('[')
                     .and_then(|it| it.split_once(']'))
@@ -143,7 +150,7 @@ fn main() {
         std::process::exit(1);
     });
 
-    let input = include_str!("../EXAMPLE_CHANGELOG.md");
+    let input = include_str!("../../EXAMPLE_CHANGELOG.md");
 
     match extract_version_section(input, &version) {
         Some(section) => print!("{}", section.trim()),
