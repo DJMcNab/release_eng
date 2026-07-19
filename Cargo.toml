@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["changelog-to-release", "git-changelog"]
+members = ["changelog-to-release", "examples/test-package", "git-changelog"]
 
 [workspace.lints]
 # This one may vary depending on the project.
