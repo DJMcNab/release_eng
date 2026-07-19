@@ -1,6 +1,5 @@
 [package]
 name = "release_eng"
-version = "0.1.0"
 edition = "2024"
 description = "Experiments in release engineering"
 license = "MIT or APACHE-2.0"

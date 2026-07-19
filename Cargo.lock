@@ -121,7 +121,7 @@ dependencies = [
 
 [[package]]
 name = "git-changelog"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -198,7 +198,7 @@ dependencies = [
 
 [[package]]
 name = "release_eng"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "pulldown-cmark",
 ]
