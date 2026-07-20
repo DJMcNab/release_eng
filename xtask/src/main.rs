@@ -1,20 +1,12 @@
 // Copyright 2026 the Release Engineering Authors
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-//! Repository automation tasks for `release_eng`.
-//!
-//! Currently the only task drives changelog generation via the [`git_changelog`] library. Run it
-//! with:
-//!
-//! ```sh
-//! cargo xtask generate-changelog
-//! ```
+//! Repository automation tasks - see <https://github.com/matklad/cargo-xtask>
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use git_changelog::{Args, Config};
 
-/// Repository automation tasks for `release_eng`.
 #[derive(Parser, Debug)]
 #[command(bin_name = "cargo xtask")]
 struct Cli {
