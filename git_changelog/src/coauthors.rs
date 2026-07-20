@@ -1,3 +1,6 @@
+// Copyright 2026 the Release Engineering Authors
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
 //! Resolving a squash-merge commit's `Co-authored-by:` trailers to GitHub logins.
 
 use crate::collect::run_gh;
@@ -24,7 +27,9 @@ pub(crate) fn resolve_pr_co_authors(repo: &str, number: u64, commit_message: &st
         return Vec::new();
     }
 
-    let needs_lookup = trailers.iter().any(|t| login_from_noreply(&t.email).is_none());
+    let needs_lookup = trailers
+        .iter()
+        .any(|t| login_from_noreply(&t.email).is_none());
     let commit_login_map = if needs_lookup {
         match fetch_pr_commit_logins(repo, number) {
             Ok(map) => map,
@@ -111,8 +116,13 @@ fn resolve_co_authors(
 /// Fetches the PR's commits and builds a lowercased-`email -> login` map from them.
 fn fetch_pr_commit_logins(repo: &str, number: u64) -> Result<BTreeMap<String, String>> {
     let endpoint = format!("/repos/{repo}/pulls/{number}/commits?per_page=100");
-    let json = run_gh(&["api", "-H", "Accept: application/vnd.github+json", &endpoint])
-        .with_context(|| format!("failed to fetch commits for PR #{number}"))?;
+    let json = run_gh(&[
+        "api",
+        "-H",
+        "Accept: application/vnd.github+json",
+        &endpoint,
+    ])
+    .with_context(|| format!("failed to fetch commits for PR #{number}"))?;
     let commits: Vec<PrCommitResponse> = serde_json::from_str(&json)
         .with_context(|| format!("failed to parse commits JSON for PR #{number}"))?;
     Ok(build_email_login_map(&commits))
@@ -159,7 +169,8 @@ fn build_email_login_map(commits: &[PrCommitResponse]) -> BTreeMap<String, Strin
             && let Some(identity) = &commit.commit.committer
             && let Some(email) = &identity.email
         {
-            map.entry(email.to_lowercase()).or_insert_with(|| account.login.clone());
+            map.entry(email.to_lowercase())
+                .or_insert_with(|| account.login.clone());
         }
     }
     map
@@ -185,7 +196,10 @@ mod tests {
         let mut map = BTreeMap::new();
         map.insert("jane@corp.example".to_owned(), "janedoe".to_owned());
         let (resolved, unresolved) = resolve_co_authors(&trailers, &map);
-        assert_eq!(resolved, vec!["noreply_user".to_owned(), "janedoe".to_owned()]);
+        assert_eq!(
+            resolved,
+            vec!["noreply_user".to_owned(), "janedoe".to_owned()]
+        );
         assert_eq!(unresolved.len(), 1);
         assert_eq!(unresolved[0].email, "ghost@nowhere.example");
     }

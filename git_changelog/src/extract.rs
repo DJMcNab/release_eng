@@ -1,3 +1,6 @@
+// Copyright 2026 the Release Engineering Authors
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
 //! PR-body `Changelog` block parsing (pure).
 
 /// The outcome of parsing a PR body's `Changelog` block.
@@ -67,7 +70,10 @@ enum MarkerKind {
 
 fn normalize_marker_line(line: &str) -> Option<MarkerKind> {
     let t = line.trim();
-    let t = t.strip_prefix("**").and_then(|s| s.strip_suffix("**")).unwrap_or(t);
+    let t = t
+        .strip_prefix("**")
+        .and_then(|s| s.strip_suffix("**"))
+        .unwrap_or(t);
     let t = t.trim();
     if t.eq_ignore_ascii_case("changelog: none") {
         Some(MarkerKind::None)
@@ -152,20 +158,32 @@ mod tests {
 
     #[test]
     fn extraction_none_opt_out() {
-        assert_eq!(extract_changelog(Some("**Changelog: None**")), Extraction::NoneOptOut);
-        assert_eq!(extract_changelog(Some("Changelog: None")), Extraction::NoneOptOut);
+        assert_eq!(
+            extract_changelog(Some("**Changelog: None**")),
+            Extraction::NoneOptOut
+        );
+        assert_eq!(
+            extract_changelog(Some("Changelog: None")),
+            Extraction::NoneOptOut
+        );
     }
 
     #[test]
     fn extraction_missing_marker_is_placeholder() {
-        assert_eq!(extract_changelog(Some("Just a description, no marker.")), Extraction::Placeholder);
+        assert_eq!(
+            extract_changelog(Some("Just a description, no marker.")),
+            Extraction::Placeholder
+        );
         assert_eq!(extract_changelog(None), Extraction::Placeholder);
     }
 
     #[test]
     fn extraction_malformed_blockquote_is_placeholder() {
         // Marker present, but no blockquote follows.
-        assert_eq!(extract_changelog(Some("**Changelog**\n\nNo blockquote here.")), Extraction::Placeholder);
+        assert_eq!(
+            extract_changelog(Some("**Changelog**\n\nNo blockquote here.")),
+            Extraction::Placeholder
+        );
         // Marker present, blockquote present, but no bullets.
         assert_eq!(
             extract_changelog(Some("**Changelog**\n\n> ### Added\n>\n")),

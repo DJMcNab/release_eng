@@ -65,6 +65,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c4512299f36f043ab09a583e57bceb5a5aab7a73db1805848e8fef3c9e8c78b3"
 
 [[package]]
+name = "changelog_to_release"
+version = "0.0.0"
+dependencies = [
+ "pulldown-cmark",
+]
+
+[[package]]
 name = "clap"
 version = "4.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -120,8 +127,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "git-changelog"
-version = "0.0.0"
+name = "git_changelog"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -197,13 +204,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "release_eng"
-version = "0.0.0"
-dependencies = [
- "pulldown-cmark",
-]
-
-[[package]]
 name = "serde"
 version = "1.0.228"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -264,7 +264,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "test-package"
+name = "test_package"
 version = "0.1.0"
 
 [[package]]
@@ -304,15 +304,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ae137229bcbd6cdf0f7b80a31df61766145077ddf49416a728b02cb3921ff3fc"
 dependencies = [
  "windows-link",
-]
-
-[[package]]
-name = "xtask"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "clap",
- "git-changelog",
 ]
 
 [[package]]

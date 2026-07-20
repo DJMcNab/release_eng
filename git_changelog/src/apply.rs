@@ -1,3 +1,6 @@
+// Copyright 2026 the Release Engineering Authors
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
 //! Stage 3: apply (impure).
 
 use crate::collect::run_git;
@@ -13,11 +16,13 @@ const MARKER_SUFFIX: &str = " -->";
 
 /// Reads the `git-changelog:last-commit` marker value out of changelog content, if present.
 ///
-/// Shared with [`crate::collect`], which uses it to find the base commit for a run.
+/// Shared with [`mod@crate::collect`], which uses it to find the base commit for a run.
 pub(crate) fn read_marker(content: &str) -> Option<String> {
     content.lines().find_map(|l| {
         let t = l.trim();
-        t.strip_prefix(MARKER_PREFIX)?.strip_suffix(MARKER_SUFFIX).map(str::to_owned)
+        t.strip_prefix(MARKER_PREFIX)?
+            .strip_suffix(MARKER_SUFFIX)
+            .map(str::to_owned)
     })
 }
 
@@ -59,7 +64,9 @@ fn set_marker(content: &str, sha: &str) -> String {
 }
 
 fn check_not_dirty(file: &Path) -> Result<()> {
-    let path_str = file.to_str().ok_or_else(|| anyhow!("non-UTF8 path: {}", file.display()))?;
+    let path_str = file
+        .to_str()
+        .ok_or_else(|| anyhow!("non-UTF8 path: {}", file.display()))?;
     let status = run_git(&["status", "--porcelain", "--", path_str])
         .with_context(|| format!("failed to check git status of {}", file.display()))?;
     for line in status.lines() {
@@ -118,7 +125,11 @@ pub(crate) fn apply(config: &Config, collected: &Collected) -> Result<()> {
 fn print_summary(summary: &Summary) {
     eprintln!("git-changelog summary:");
     for (file, count) in &summary.entries_added {
-        eprintln!("  {}: {count} entr{}", file.display(), if *count == 1 { "y" } else { "ies" });
+        eprintln!(
+            "  {}: {count} entr{}",
+            file.display(),
+            if *count == 1 { "y" } else { "ies" }
+        );
     }
     eprintln!("  placeholders: {}", summary.placeholders);
     eprintln!("  skipped (Changelog: None): {}", summary.none_skipped);
@@ -136,8 +147,14 @@ mod tests {
         assert_eq!(lines[0], "# Changelog");
         assert_eq!(lines[1], "<!-- git-changelog:last-commit abc123 -->");
         // Still outside `## [Unreleased]`.
-        let marker_idx = lines.iter().position(|l| l.contains("git-changelog:last-commit")).unwrap();
-        let unreleased_idx = lines.iter().position(|l| l.trim() == "## [Unreleased]").unwrap();
+        let marker_idx = lines
+            .iter()
+            .position(|l| l.contains("git-changelog:last-commit"))
+            .unwrap();
+        let unreleased_idx = lines
+            .iter()
+            .position(|l| l.trim() == "## [Unreleased]")
+            .unwrap();
         assert!(marker_idx < unreleased_idx);
     }
 

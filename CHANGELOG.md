@@ -1,9 +1,17 @@
+<!-- Instructions
+
+This changelog follows the patterns described here: <https://keepachangelog.com/en/>.
+
+Subheadings to categorize changes are `added, changed, deprecated, removed, fixed, security`.
+
+-->
+
 # Changelog
 
-All notable changes to this repository are documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
-Entries under Unreleased are drafted by `cargo xtask` (the `git-changelog` tool) and then
-curated by hand.
-
 ## [Unreleased]
+
+This release has an [MSRV][] of 1.96.
+
+[MSRV]: README.md#minimum-supported-rust-version-msrv
+
+[Unreleased]: https://github.com/DJMcNab/release_eng/commits/main

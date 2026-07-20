@@ -1,3 +1,6 @@
+// Copyright 2026 the Release Engineering Authors
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
 //! Stage 1: collect (impure).
 //!
 //! Talks to `git` and `gh` to gather everything [`crate::process`] needs, with no further I/O.
@@ -66,8 +69,13 @@ pub(crate) fn collect(config: &Config, args: &Args) -> Result<Collected> {
     let mut prs = Vec::with_capacity(ordered_prs.len());
     for (number, sha) in ordered_prs {
         let endpoint = format!("/repos/{}/pulls/{number}", config.repo);
-        let api_json = run_gh(&["api", "-H", "Accept: application/vnd.github+json", &endpoint])
-            .with_context(|| format!("failed to fetch PR #{number} via `gh api`"))?;
+        let api_json = run_gh(&[
+            "api",
+            "-H",
+            "Accept: application/vnd.github+json",
+            &endpoint,
+        ])
+        .with_context(|| format!("failed to fetch PR #{number} via `gh api`"))?;
         let api: PrApiResponse = serde_json::from_str(&api_json)
             .with_context(|| format!("failed to parse PR JSON for #{number}"))?;
 
@@ -75,13 +83,14 @@ pub(crate) fn collect(config: &Config, args: &Args) -> Result<Collected> {
             .with_context(|| format!("failed to read commit message for {sha}"))?;
         let co_authors = resolve_pr_co_authors(&config.repo, number, &commit_message);
 
-        let changed_paths: Vec<PathBuf> = run_git(&["show", "--name-only", "--pretty=format:", &sha])
-            .with_context(|| format!("failed to read changed paths for {sha}"))?
-            .lines()
-            .map(str::trim)
-            .filter(|line| !line.is_empty())
-            .map(PathBuf::from)
-            .collect();
+        let changed_paths: Vec<PathBuf> =
+            run_git(&["show", "--name-only", "--pretty=format:", &sha])
+                .with_context(|| format!("failed to read changed paths for {sha}"))?
+                .lines()
+                .map(str::trim)
+                .filter(|line| !line.is_empty())
+                .map(PathBuf::from)
+                .collect();
 
         prs.push(PrData {
             number,
@@ -133,7 +142,7 @@ fn verify_command_exists(name: &str) -> Result<()> {
 
 /// Runs `git` with the given arguments and returns its stdout.
 ///
-/// Shared with [`crate::apply`]'s pre-flight dirty check.
+/// Shared with [`mod@crate::apply`]'s pre-flight dirty check.
 pub(crate) fn run_git(args: &[&str]) -> Result<String> {
     run_command("git", args)
 }

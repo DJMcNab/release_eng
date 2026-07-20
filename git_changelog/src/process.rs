@@ -1,3 +1,6 @@
+// Copyright 2026 the Release Engineering Authors
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
 //! Stage 2: process (pure).
 //!
 //! Extracts, routes, and merges -- no I/O at all.
@@ -11,7 +14,7 @@ use std::path::{Path, PathBuf};
 
 /// The pure processing stage: extracts, routes, and merges.
 ///
-/// Takes the impure [`crate::collect`] output plus the *current* contents of every target
+/// Takes the impure [`mod@crate::collect`] output plus the *current* contents of every target
 /// changelog file, keyed by repo-root-relative path, and returns the new contents for every file
 /// that changed. Does no I/O whatsoever.
 pub(crate) fn process(
@@ -51,7 +54,10 @@ pub(crate) fn process(
             Extraction::Placeholder => {
                 let logins = attribution_logins(pr);
                 let attribution = format_attribution(&logins);
-                let text = format!("no-changelog: {} ([#{}][] by {attribution})", pr.title, pr.number);
+                let text = format!(
+                    "no-changelog: {} ([#{}][] by {attribution})",
+                    pr.title, pr.number
+                );
                 for target in &targets {
                     let accum = per_file.entry(target.clone()).or_default();
                     accum.placeholders.push((pr.number, text.clone()));
@@ -66,11 +72,15 @@ pub(crate) fn process(
 
     let mut updated = BTreeMap::new();
     for (file, accum) in per_file {
-        let content = current
-            .get(&file)
-            .ok_or_else(|| anyhow!("no current content provided for changelog file {}", file.display()))?;
+        let content = current.get(&file).ok_or_else(|| {
+            anyhow!(
+                "no current content provided for changelog file {}",
+                file.display()
+            )
+        })?;
         let merged = merge_into_unreleased(content, &accum.sections, &accum.placeholders)?;
-        let with_refs = update_reference_defs(&merged, &config.repo, &accum.pr_numbers, &accum.authors)?;
+        let with_refs =
+            update_reference_defs(&merged, &config.repo, &accum.pr_numbers, &accum.authors)?;
         updated.insert(file, with_refs);
     }
 
@@ -94,7 +104,12 @@ fn route(config: &Config, changed_paths: &[PathBuf]) -> BTreeSet<PathBuf> {
     let non_ignored: Vec<&Path> = changed_paths
         .iter()
         .map(PathBuf::as_path)
-        .filter(|p| !config.ignore_paths.iter().any(|ignored| ignored.as_path() == *p))
+        .filter(|p| {
+            !config
+                .ignore_paths
+                .iter()
+                .any(|ignored| ignored.as_path() == *p)
+        })
         .collect();
 
     let mut matched: BTreeSet<PathBuf> = config
@@ -136,7 +151,11 @@ fn format_attribution(logins: &[String]) -> String {
         [a, b] => format!("[@{a}][] and [@{b}][]"),
         many => {
             let (last, rest) = many.split_last().expect("non-empty slice");
-            let joined = rest.iter().map(|l| format!("[@{l}][]")).collect::<Vec<_>>().join(", ");
+            let joined = rest
+                .iter()
+                .map(|l| format!("[@{l}][]"))
+                .collect::<Vec<_>>()
+                .join(", ");
             format!("{joined}, and [@{last}][]")
         }
     }
@@ -148,10 +167,16 @@ mod tests {
 
     fn config() -> Config {
         Config::new("linebender/vello", "CHANGELOG.md")
-            .changelog("sparse_strips/vello_cpu/CHANGELOG.md", ["sparse_strips/vello_cpu"])
+            .changelog(
+                "sparse_strips/vello_cpu/CHANGELOG.md",
+                ["sparse_strips/vello_cpu"],
+            )
             .changelog(
                 "sparse_strips/vello_common/CHANGELOG.md",
-                ["sparse_strips/vello_common", "sparse_strips/vello_common/crate"],
+                [
+                    "sparse_strips/vello_common",
+                    "sparse_strips/vello_common/crate",
+                ],
             )
     }
 
@@ -200,7 +225,10 @@ mod tests {
         // A nested Cargo.toml is NOT matched by the exact "Cargo.toml" ignore entry, so it
         // routes normally to its crate's changelog.
         let targets = route(&cfg, &[PathBuf::from("sparse_strips/vello_cpu/Cargo.toml")]);
-        assert_eq!(targets, BTreeSet::from([PathBuf::from("sparse_strips/vello_cpu/CHANGELOG.md")]));
+        assert_eq!(
+            targets,
+            BTreeSet::from([PathBuf::from("sparse_strips/vello_cpu/CHANGELOG.md")])
+        );
     }
 
     // --- process() end-to-end summary -----------------------------------------------------------
@@ -244,14 +272,11 @@ Initial release.
 
         let collected = Collected {
             head_sha: "deadbeef".to_owned(),
-            prs: vec![
-                pr(400, "alice", &["src/lib.rs"]),
-                {
-                    let mut p = pr(401, "bob", &["src/lib.rs"]);
-                    p.body = Some("Changelog: None".to_owned());
-                    p
-                },
-            ],
+            prs: vec![pr(400, "alice", &["src/lib.rs"]), {
+                let mut p = pr(401, "bob", &["src/lib.rs"]);
+                p.body = Some("Changelog: None".to_owned());
+                p
+            }],
         };
 
         let output = process(&collected, &cfg, &current).expect("process should succeed");

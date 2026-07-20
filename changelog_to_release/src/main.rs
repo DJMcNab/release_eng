@@ -1,3 +1,6 @@
+// Copyright 2026 the Release Engineering Authors
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
 //! Some basic release engineering.
 
 use pulldown_cmark::{Event, HeadingLevel, Parser, Tag, TagEnd};
@@ -110,7 +113,10 @@ fn extract_version_section(input: &str, version: &str) -> Option<String> {
     for (rewrite_range, rewrite) in rewrites {
         if rewrite_range.start < source_cursor {
             assert!(!started, "Overlapping ranges should be impossible.");
-            debug_assert!(rewrite_range.end < source_cursor);
+            debug_assert!(
+                rewrite_range.end < source_cursor,
+                "Overlapping ranges should be impossible."
+            );
             continue;
         }
         started = true;
@@ -150,7 +156,7 @@ fn main() {
         std::process::exit(1);
     });
 
-    let input = include_str!("../../EXAMPLE_CHANGELOG.md");
+    let input = include_str!("../../CHANGELOG.md");
 
     match extract_version_section(input, &version) {
         Some(section) => print!("{}", section.trim()),

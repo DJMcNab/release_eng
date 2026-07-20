@@ -1,3 +1,6 @@
+// Copyright 2026 the Release Engineering Authors
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
 //! The markdown-editing core (pure): merging new entries into `## [Unreleased]`, and inserting
 //! the reference-style link definitions they need.
 
@@ -6,10 +9,20 @@ use std::collections::{BTreeMap, BTreeSet};
 
 // --- Unreleased-section merge -------------------------------------------------------------
 
-const CANONICAL_SECTIONS: [&str; 6] = ["Added", "Changed", "Deprecated", "Removed", "Fixed", "Security"];
+const CANONICAL_SECTIONS: [&str; 6] = [
+    "Added",
+    "Changed",
+    "Deprecated",
+    "Removed",
+    "Fixed",
+    "Security",
+];
 
 fn canonical_rank(name: &str) -> usize {
-    CANONICAL_SECTIONS.iter().position(|s| *s == name).unwrap_or(usize::MAX)
+    CANONICAL_SECTIONS
+        .iter()
+        .position(|s| *s == name)
+        .unwrap_or(usize::MAX)
 }
 
 #[derive(Debug, Clone)]
@@ -50,7 +63,10 @@ fn insert_bullet(items: &mut Vec<BulletLine>, pr: u64, line: String) {
     let mut insert_at = None;
     let mut last_bullet_idx = None;
     for (idx, item) in items.iter().enumerate() {
-        if let BulletLine::Bullet { pr: existing_pr, .. } = item {
+        if let BulletLine::Bullet {
+            pr: existing_pr, ..
+        } = item
+        {
             last_bullet_idx = Some(idx);
             if existing_pr.is_some_and(|ep| ep > pr) {
                 insert_at = Some(idx);
@@ -59,7 +75,13 @@ fn insert_bullet(items: &mut Vec<BulletLine>, pr: u64, line: String) {
         }
     }
     let at = insert_at.unwrap_or_else(|| last_bullet_idx.map_or(items.len(), |i| i + 1));
-    items.insert(at, BulletLine::Bullet { pr: Some(pr), text: line });
+    items.insert(
+        at,
+        BulletLine::Bullet {
+            pr: Some(pr),
+            text: line,
+        },
+    );
 }
 
 #[derive(Debug, Clone)]
@@ -72,7 +94,11 @@ struct Subsection {
 impl Subsection {
     fn render(&self) -> Vec<String> {
         let mut out = vec![self.heading.clone()];
-        out.extend(self.body_lines.iter().map(|l| bullet_line_text(l).to_owned()));
+        out.extend(
+            self.body_lines
+                .iter()
+                .map(|l| bullet_line_text(l).to_owned()),
+        );
         out
     }
 }
@@ -88,19 +114,39 @@ fn is_ref_def_line(line: &str) -> bool {
     rest[idx + 1..].starts_with(':')
 }
 
+/// Whether `line` is the `## [Unreleased]` heading.
+///
+/// This tolerates the different link spellings Linebender changelogs use for the heading: the
+/// shortcut `## [Unreleased]`, the collapsed `## [Unreleased][]`, and either of those followed by
+/// trailing content such as a date.
+fn is_unreleased_heading(line: &str) -> bool {
+    let Some(rest) = line.trim().strip_prefix("## [Unreleased]") else {
+        return false;
+    };
+    rest.is_empty() || rest.starts_with("[]") || rest.starts_with(char::is_whitespace)
+}
+
 fn parse_subsections(rest: &[&str]) -> Vec<Subsection> {
     let mut out = Vec::new();
     let mut i = 0;
     while i < rest.len() {
         if rest[i].trim_start().starts_with("### ") {
             let heading = (*rest[i]).to_owned();
-            let name = heading.trim_start().trim_start_matches("### ").trim().to_owned();
+            let name = heading
+                .trim_start()
+                .trim_start_matches("### ")
+                .trim()
+                .to_owned();
             let mut j = i + 1;
             while j < rest.len() && !rest[j].trim_start().starts_with("### ") {
                 j += 1;
             }
             let body_lines = rest[i + 1..j].iter().map(|l| classify_line(l)).collect();
-            out.push(Subsection { name, heading, body_lines });
+            out.push(Subsection {
+                name,
+                heading,
+                body_lines,
+            });
             i = j;
         } else {
             i += 1;
@@ -117,7 +163,11 @@ fn section_insert_position(subsections: &[Subsection], name: &str) -> usize {
         .unwrap_or(subsections.len())
 }
 
-fn insert_section_entries(subsections: &mut Vec<Subsection>, name: &str, entries: &[(u64, String)]) {
+fn insert_section_entries(
+    subsections: &mut Vec<Subsection>,
+    name: &str,
+    entries: &[(u64, String)],
+) {
     let mut sorted_entries = entries.to_vec();
     sorted_entries.sort_by_key(|(pr, _)| *pr);
     if let Some(sub) = subsections.iter_mut().find(|s| s.name == name) {
@@ -152,7 +202,10 @@ fn splice_bullets(prelude: &[&str], new_entries: &[(u64, String)]) -> Vec<String
     for (pr, text) in sorted_entries {
         insert_bullet(&mut items, pr, format!("- {text}"));
     }
-    items.iter().map(|l| bullet_line_text(l).to_owned()).collect()
+    items
+        .iter()
+        .map(|l| bullet_line_text(l).to_owned())
+        .collect()
 }
 
 /// Merges new section entries and loose placeholder bullets into a changelog's
@@ -170,7 +223,7 @@ pub(crate) fn merge_into_unreleased(
     let lines: Vec<&str> = content.lines().collect();
     let unreleased_idx = lines
         .iter()
-        .position(|l| l.trim() == "## [Unreleased]")
+        .position(|l| is_unreleased_heading(l))
         .context("could not find a `## [Unreleased]` heading")?;
 
     let boundary_idx = lines[unreleased_idx + 1..]
@@ -291,7 +344,9 @@ fn insert_author_def_line(lines: &mut Vec<String>, login: &str, new_line: String
         .filter(|&i| author_label(&lines[i]).is_some())
         .collect();
     let Some(&last) = author_indices.last() else {
-        if let Some(first_pr) = (block_start..lines.len()).find(|&i| pr_label_num(&lines[i]).is_some()) {
+        if let Some(first_pr) =
+            (block_start..lines.len()).find(|&i| pr_label_num(&lines[i]).is_some())
+        {
             lines.insert(first_pr, String::new());
             lines.insert(first_pr, new_line);
         } else {
@@ -330,16 +385,28 @@ pub(crate) fn update_reference_defs(
     let existing_authors: BTreeSet<String> = lines.iter().filter_map(|l| author_label(l)).collect();
 
     // Definitions we started with, so we can verify none are dropped by the insertions below.
-    let original_defs: Vec<String> = lines.iter().filter(|l| is_ref_def_line(l)).cloned().collect();
+    let original_defs: Vec<String> = lines
+        .iter()
+        .filter(|l| is_ref_def_line(l))
+        .cloned()
+        .collect();
 
     for author in authors {
         if !existing_authors.contains(author) {
-            insert_author_def_line(&mut lines, author, format!("[@{author}]: https://github.com/{author}"));
+            insert_author_def_line(
+                &mut lines,
+                author,
+                format!("[@{author}]: https://github.com/{author}"),
+            );
         }
     }
     for &n in pr_numbers {
         if !existing_prs.contains(&n) {
-            insert_pr_def_line(&mut lines, n, format!("[#{n}]: https://github.com/{repo}/pull/{n}"));
+            insert_pr_def_line(
+                &mut lines,
+                n,
+                format!("[#{n}]: https://github.com/{repo}/pull/{n}"),
+            );
         }
     }
 
@@ -347,7 +414,9 @@ pub(crate) fn update_reference_defs(
     let final_defs: BTreeSet<&String> = lines.iter().filter(|l| is_ref_def_line(l)).collect();
     for def in &original_defs {
         if !final_defs.contains(def) {
-            bail!("refusing to drop existing reference definition `{def}` while updating the changelog");
+            bail!(
+                "refusing to drop existing reference definition `{def}` while updating the changelog"
+            );
         }
     }
 
@@ -396,6 +465,50 @@ Initial release.
     }
 
     #[test]
+    fn unreleased_heading_matches_link_spellings() {
+        assert!(is_unreleased_heading("## [Unreleased]"));
+        assert!(is_unreleased_heading("## [Unreleased][]"));
+        assert!(is_unreleased_heading("  ## [Unreleased]  "));
+        assert!(is_unreleased_heading("## [Unreleased] - 2026-01-01"));
+        assert!(is_unreleased_heading("## [Unreleased][] - 2026-01-01"));
+
+        assert!(!is_unreleased_heading("## [0.1.0]"));
+        assert!(!is_unreleased_heading("### [Unreleased]"));
+        assert!(!is_unreleased_heading("## [Unreleased entries]"));
+    }
+
+    #[test]
+    fn merge_finds_collapsed_reference_heading() {
+        let cfg = Config::new("owner/repo", "CHANGELOG.md");
+        let mut current = BTreeMap::new();
+        // Same fixture, but with the collapsed `[Unreleased][]` heading spelling.
+        current.insert(
+            PathBuf::from("CHANGELOG.md"),
+            changelog_fixture().replace("## [Unreleased]", "## [Unreleased][]"),
+        );
+
+        let collected = Collected {
+            head_sha: "deadbeef".to_owned(),
+            prs: vec![PrData {
+                number: 150,
+                title: "Straggler PR".to_owned(),
+                body: Some("**Changelog**\n\n> ### Added\n>\n> - Straggler entry.\n".to_owned()),
+                author: "carol".to_owned(),
+                co_authors: Vec::new(),
+                changed_paths: vec![PathBuf::from("src/lib.rs")],
+            }],
+        };
+
+        let output =
+            crate::process::process(&collected, &cfg, &current).expect("process should succeed");
+        let updated = &output.updated[Path::new("CHANGELOG.md")];
+        assert!(
+            updated.contains("- Straggler entry. ([#150][] by [@carol][])"),
+            "new entry should be merged under the collapsed-reference Unreleased heading:\n{updated}"
+        );
+    }
+
+    #[test]
     fn merge_sorted_insertion_with_straggler() {
         let cfg = Config::new("owner/repo", "CHANGELOG.md");
         let mut current = BTreeMap::new();
@@ -414,14 +527,21 @@ Initial release.
             }],
         };
 
-        let output = crate::process::process(&collected, &cfg, &current).expect("process should succeed");
-        let new_content = output.updated.get(Path::new("CHANGELOG.md")).expect("file changed");
+        let output =
+            crate::process::process(&collected, &cfg, &current).expect("process should succeed");
+        let new_content = output
+            .updated
+            .get(Path::new("CHANGELOG.md"))
+            .expect("file changed");
 
         let added_idx = new_content.find("### Added").unwrap();
         let idx100 = new_content.find("Existing entry one").unwrap();
         let idx150 = new_content.find("Straggler entry").unwrap();
         let idx200 = new_content.find("Existing entry two").unwrap();
-        assert!(added_idx < idx100 && idx100 < idx150 && idx150 < idx200, "expected ascending PR order");
+        assert!(
+            added_idx < idx100 && idx100 < idx150 && idx150 < idx200,
+            "expected ascending PR order"
+        );
         assert!(new_content.contains("([#150][] by [@carol][])"));
 
         // Existing entries are untouched.
@@ -443,7 +563,9 @@ Initial release.
                 PrData {
                     number: 300,
                     title: "Fix something".to_owned(),
-                    body: Some("**Changelog**\n\n> ### Fixed\n>\n> - Fixed something.\n".to_owned()),
+                    body: Some(
+                        "**Changelog**\n\n> ### Fixed\n>\n> - Fixed something.\n".to_owned(),
+                    ),
                     author: "dave".to_owned(),
                     co_authors: Vec::new(),
                     changed_paths: vec![PathBuf::from("src/lib.rs")],
@@ -451,7 +573,9 @@ Initial release.
                 PrData {
                     number: 250,
                     title: "Change something".to_owned(),
-                    body: Some("**Changelog**\n\n> ### Changed\n>\n> - Changed something.\n".to_owned()),
+                    body: Some(
+                        "**Changelog**\n\n> ### Changed\n>\n> - Changed something.\n".to_owned(),
+                    ),
                     author: "erin".to_owned(),
                     co_authors: Vec::new(),
                     changed_paths: vec![PathBuf::from("src/lib.rs")],
@@ -459,13 +583,20 @@ Initial release.
             ],
         };
 
-        let output = crate::process::process(&collected, &cfg, &current).expect("process should succeed");
-        let new_content = output.updated.get(Path::new("CHANGELOG.md")).expect("file changed");
+        let output =
+            crate::process::process(&collected, &cfg, &current).expect("process should succeed");
+        let new_content = output
+            .updated
+            .get(Path::new("CHANGELOG.md"))
+            .expect("file changed");
 
         let added_idx = new_content.find("### Added").unwrap();
         let changed_idx = new_content.find("### Changed").unwrap();
         let fixed_idx = new_content.find("### Fixed").unwrap();
-        assert!(added_idx < changed_idx && changed_idx < fixed_idx, "expected canonical section order");
+        assert!(
+            added_idx < changed_idx && changed_idx < fixed_idx,
+            "expected canonical section order"
+        );
     }
 
     #[test]
@@ -486,11 +617,17 @@ Initial release.
             }],
         };
 
-        let output = crate::process::process(&collected, &cfg, &current).expect("process should succeed");
-        let new_content = output.updated.get(Path::new("CHANGELOG.md")).expect("file changed");
+        let output =
+            crate::process::process(&collected, &cfg, &current).expect("process should succeed");
+        let new_content = output
+            .updated
+            .get(Path::new("CHANGELOG.md"))
+            .expect("file changed");
 
         let msrv_idx = new_content.find("This release has an [MSRV]").unwrap();
-        let placeholder_idx = new_content.find("no-changelog: Some internal refactor").unwrap();
+        let placeholder_idx = new_content
+            .find("no-changelog: Some internal refactor")
+            .unwrap();
         let added_idx = new_content.find("### Added").unwrap();
         assert!(msrv_idx < placeholder_idx && placeholder_idx < added_idx);
         assert!(new_content.contains("([#50][] by [@frank][])"));
@@ -526,11 +663,18 @@ Initial release.
             ],
         };
 
-        let output = crate::process::process(&collected, &cfg, &current).expect("process should succeed");
-        let new_content = output.updated.get(Path::new("CHANGELOG.md")).expect("file changed");
+        let output =
+            crate::process::process(&collected, &cfg, &current).expect("process should succeed");
+        let new_content = output
+            .updated
+            .get(Path::new("CHANGELOG.md"))
+            .expect("file changed");
 
         // PR defs: numeric ascending, existing untouched, new ones inserted, no duplicates.
-        let pr_defs: Vec<&str> = new_content.lines().filter(|l| l.starts_with("[#")).collect();
+        let pr_defs: Vec<&str> = new_content
+            .lines()
+            .filter(|l| l.starts_with("[#"))
+            .collect();
         assert_eq!(
             pr_defs,
             vec![
@@ -542,7 +686,10 @@ Initial release.
         );
 
         // Author defs: alphabetical, existing untouched, deduped (alice already existed), amy/zed added.
-        let author_defs: Vec<&str> = new_content.lines().filter(|l| l.starts_with("[@")).collect();
+        let author_defs: Vec<&str> = new_content
+            .lines()
+            .filter(|l| l.starts_with("[@"))
+            .collect();
         assert_eq!(
             author_defs,
             vec![
@@ -594,8 +741,12 @@ This package was created.
             }],
         };
 
-        let output = crate::process::process(&collected, &cfg, &current).expect("process should succeed");
-        let new_content = output.updated.get(Path::new("CHANGELOG.md")).expect("file changed");
+        let output =
+            crate::process::process(&collected, &cfg, &current).expect("process should succeed");
+        let new_content = output
+            .updated
+            .get(Path::new("CHANGELOG.md"))
+            .expect("file changed");
         assert!(new_content.contains("[@alice]: https://github.com/alice"));
         assert!(new_content.contains("[#1]: https://github.com/owner/repo/pull/1"));
     }
@@ -628,8 +779,14 @@ A closing note that is not a definition.
             out.contains("A closing note that is not a definition."),
             "trailing prose must be preserved, not dropped"
         );
-        assert!(out.contains("[#5]: https://example.com/pull/5"), "existing def preserved");
-        assert!(out.contains("[#7]: https://github.com/owner/repo/pull/7"), "new def added");
+        assert!(
+            out.contains("[#5]: https://example.com/pull/5"),
+            "existing def preserved"
+        );
+        assert!(
+            out.contains("[#7]: https://github.com/owner/repo/pull/7"),
+            "new def added"
+        );
     }
 
     #[test]
@@ -664,7 +821,10 @@ A closing note that is not a definition.
         // New defs land in their own groups, sorted.
         assert!(out.contains("[#20]: https://github.com/owner/repo/pull/20"));
         let author_amy = out.find("[@amy]:").unwrap();
-        assert!(author_amy < author_bob, "amy sorts before bob within the author group");
+        assert!(
+            author_amy < author_bob,
+            "amy sorts before bob within the author group"
+        );
     }
 
     #[test]
@@ -701,6 +861,9 @@ Some prose that breaks the definition block.
         // The stray def and prose are preserved, and the new def is in the bottom block.
         assert!(stray_3 < prose, "stray [#3] preserved above the prose");
         assert!(prose < bottom_5, "bottom block sits after the prose");
-        assert!(bottom_5 < new_8, "new [#8] joins the bottom block, after [#5]");
+        assert!(
+            bottom_5 < new_8,
+            "new [#8] joins the bottom block, after [#5]"
+        );
     }
 }
