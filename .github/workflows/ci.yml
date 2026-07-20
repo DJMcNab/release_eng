@@ -92,8 +92,8 @@ jobs:
         with:
           tool: cargo-rdme@1.4.8
 
-      - name: Run cargo rdme (git-changelog)
-        run: cargo rdme --workspace-project=git-changelog --check
+      - name: Run cargo rdme (git_changelog)
+        run: cargo rdme --workspace-project=git_changelog --check
 
   clippy-stable:
     name: cargo clippy
