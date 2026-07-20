@@ -26,5 +26,4 @@ This package was created.
 
 [@DJMcNab]: https://github.com/DJMcNab
 
-[#2]: https://github.com/DJMcNab/release_eng/pull/2
 [#3]: https://github.com/DJMcNab/release_eng/pull/3
