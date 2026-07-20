@@ -1,6 +1,6 @@
 [package]
 name = "test_package"
-version = "0.1.0"
+# No version currently - we do 'fake' releases by changing Cargo.toml only.
 edition.workspace = true
 rust-version.workspace = true
 repository.workspace = true
