@@ -1,6 +1,15 @@
 [workspace]
-resolver = "3"
-members = ["changelog-to-release", "examples/test-package", "git-changelog"]
+resolver = "2"
+members = ["changelog_to_release", "examples/test_package", "git_changelog"]
+
+[workspace.package]
+edition = "2024"
+# Keep in sync with RUST_MIN_VER in .github/workflows/ci.yml and the README.md files.
+rust-version = "1.96"
+license = "Apache-2.0 OR MIT"
+repository = "https://github.com/DJMcNab/release_eng"
+
+[workspace.dependencies]
 
 [workspace.lints]
 # This one may vary depending on the project.
@@ -47,8 +56,14 @@ clippy.todo = "warn"
 clippy.unseparated_literal_suffix = "warn"
 clippy.use_self = "warn"
 
-# clippy.cargo_common_metadata = "warn"
+clippy.cargo_common_metadata = "warn"
 clippy.negative_feature_names = "warn"
 clippy.redundant_feature_names = "warn"
 clippy.wildcard_dependencies = "warn"
 # END LINEBENDER LINT SET
+
+[profile.ci]
+inherits = "dev"
+debug = 0 # Don't compile debug info to reduce compilation artifact size for cache benefits.
+[profile.ci.package."*"]
+debug-assertions = true # Keep always on for dependencies for cache reuse.

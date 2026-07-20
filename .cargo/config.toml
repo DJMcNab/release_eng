@@ -1,0 +1,3 @@
+[alias]
+# Run repository automation, e.g. `cargo xtask --since <git-ref>` to draft changelog entries.
+xtask = "run --package xtask --"

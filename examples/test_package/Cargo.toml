@@ -1,0 +1,11 @@
+[package]
+name = "test_package"
+# No version currently - we do 'fake' releases by changing Cargo.toml only.
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[dependencies]
+
+[lints]
+workspace = true
