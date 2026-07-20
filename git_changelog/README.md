@@ -58,23 +58,10 @@ git_changelog::Config::new("linebender/vello", "CHANGELOG.md")
 
 ## Minimum supported Rust Version (MSRV)
 
-This version of git-changelog has been verified to compile with **Rust 1.96** and later.
+This version of Release Engineering has been verified to compile with **Rust 1.96** and later.
 
-Future versions of git-changelog might increase the Rust version requirement.
+Future versions of Release Engineering might increase the Rust version requirement.
 It will not be treated as a breaking change and as such can even happen with small patch releases.
-
-<details>
-<summary>Click here if compiling fails.</summary>
-
-As time has passed, some of git-changelog's dependencies could have released versions with a higher Rust requirement.
-If you encounter a compilation issue due to a dependency and don't want to upgrade your Rust toolchain, then you could downgrade the dependency.
-
-```sh
-# Use the problematic dependency's name and version
-cargo update -p package_name --precise 0.1.1
-```
-
-</details>
 
 ## Community
 
