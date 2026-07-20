@@ -11,7 +11,7 @@ env:
   RUST_MIN_VER: "1.86"
   # List of packages that will be checked with the minimum supported Rust version.
   # This should be limited to packages that are intended for publishing.
-  RUST_MIN_VER_PKGS: "-p git-changelog -p release_eng"
+  RUST_MIN_VER_PKGS: "-p git_changelog -p changelog_to_release"
 
 
 # Rationale
