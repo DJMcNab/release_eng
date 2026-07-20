@@ -1,0 +1,12 @@
+[package]
+name = "xtask"
+edition = "2024"
+publish = false
+
+[dependencies]
+anyhow = "1.0.100"
+clap = { version = "4.5.50", features = ["derive"] }
+git-changelog = { path = "../git-changelog" }
+
+[lints]
+workspace = true
