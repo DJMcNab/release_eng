@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["changelog_to_release", "examples/test_package", "git_changelog"]
+members = ["changelog_to_release", "examples/test_package", "git_changelog", "xtask"]
 
 [workspace.package]
 edition = "2024"
