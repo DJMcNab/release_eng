@@ -152,7 +152,7 @@ jobs:
           save-if: ${{ github.event_name != 'merge_group' }}
 
       - name: Run cargo nextest
-        run: cargo nextest run --workspace --locked --profile ci --all-features --no-fail-fast
+        run: cargo nextest run --workspace --locked --cargo-profile ci --all-features --no-fail-fast
 
       - name: Run cargo test --doc
         run: cargo test --doc --workspace --locked --profile ci --all-features --no-fail-fast
