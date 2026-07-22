@@ -8,12 +8,15 @@ pub fn greeting() -> &'static str {
     "Hello, world!"
 }
 
-/// Returns an arbitrary greeting in Latin.
-pub fn salutatio() -> &'static str {
-    "salve Terra!"
-}
+/// Greetings in ancient languages.
+pub mod ancient {
+    /// Returns an arbitrary greeting in Latin.
+    pub fn salutatio() -> &'static str {
+        "salve Terra!"
+    }
 
-/// Returns an arbitrary greeting in Ancient Greek.
-pub fn aspasmos() -> &'static str {
-    "χαῖρε Γαῖα!"
+    /// Returns an arbitrary greeting in Ancient Greek.
+    pub fn aspasmos() -> &'static str {
+        "χαῖρε Γαῖα!"
+    }
 }
