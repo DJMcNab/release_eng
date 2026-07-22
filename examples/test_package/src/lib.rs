@@ -12,3 +12,8 @@ pub fn greeting() -> &'static str {
 pub fn salutatio() -> &'static str {
     "salve Terra!"
 }
+
+/// Returns an arbitrary greeting in Ancient Greek.
+pub fn aspasmos() -> &'static str {
+    "χαῖρε Γαῖα!"
+}
