@@ -1,6 +1,9 @@
 // Copyright 2026 the Release Engineering Authors
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+// After you edit the crate's doc comment, run this command, then check README.md for any missing links
+// cargo rdme --workspace-project=git-changelog
+
 //! First-draft changelog generation for single-or-multi crate projects, for use as an `xtask`.
 //!
 //! This project currently requires that the repository is hosted on GitHub, and uses squash merges.
