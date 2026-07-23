@@ -91,6 +91,8 @@ pub struct Args {
 /// This tool requires that there workspace has a top-level CHANGELOG file.
 /// This is used for all changes which request a changelog entry but which can't
 /// be routed to a specific crate.
+/// It also assumes that both `git` and the GitHub CLI (`gh`) are installed and available
+/// on `PATH`.
 ///
 /// Some files (by default, `Cargo.toml` and `Cargo.lock`) are ignored for routing.
 /// See [`ignore_paths`](Self::ignore_paths) for details.
@@ -151,10 +153,9 @@ pub struct Config {
 impl Config {
     /// Creates a new configuration.
     ///
-    /// `repo` is the GitHub repository in `owner/name` form. `default_changelog` is the
-    /// repo-root-relative path to the primary changelog file: it is required, since it is both
-    /// the catch-all destination (used when no more specific changelog matches a PR) and the
-    /// home of the `git-changelog:last-commit` marker.
+    /// `repo` is the GitHub repository which pull requests are resolved against, in `owner/name` form.
+    /// `default_changelog` is the repo-root-relative path to the primary changelog file.
+    /// This changelog is also used to store which commit the changelog most recently covers.
     pub fn new(repo: impl Into<String>, default_changelog: impl Into<PathBuf>) -> Self {
         Self {
             repo: repo.into(),
@@ -164,10 +165,10 @@ impl Config {
         }
     }
 
-    /// Registers an additional changelog file, routed to by any of the given source roots.
+    /// Registers an additional changelog file.
     ///
-    /// A PR routes to this changelog if any of its (non-ignored) changed paths starts with one
-    /// of `roots`. Roots and the file path are repo-root-relative.
+    /// Changes in any of the source roots in `roots` are routed to this changelog file.
+    /// All paths are relative to the repository root.
     pub fn changelog<R, P>(mut self, file: impl Into<PathBuf>, roots: R) -> Self
     where
         R: IntoIterator<Item = P>,
@@ -180,11 +181,11 @@ impl Config {
         self
     }
 
-    /// Overrides the repo-root-relative paths ignored for routing purposes.
+    /// Sets the files which are ignored for routing purposes.
     ///
-    /// Defaults to `["Cargo.toml", "Cargo.lock"]`. Paths are matched exactly against a PR's
-    /// changed paths (repo-root-relative) -- a nested `crate/Cargo.toml` is *not* ignored by the
-    /// default `Cargo.toml` entry.
+    /// Defaults to `["Cargo.toml", "Cargo.lock"]`.
+    /// This means that if you add a dependency in a PR to a sub crate, the root changelog
+    /// won't have it inserted.
     pub fn ignore_paths<R, P>(mut self, paths: R) -> Self
     where
         R: IntoIterator<Item = P>,
@@ -194,10 +195,10 @@ impl Config {
         self
     }
 
-    /// Runs the full pipeline: `collect` then `apply`.
-    pub fn run(&self, args: Args) -> Result<()> {
-        let collected = collect(self, &args)?;
-        apply(self, &collected)
+    /// Updates all contained changelogs to include all PRs since the last run.
+    pub fn run(self, args: Args) -> Result<()> {
+        let collected = collect(&self, &args)?;
+        apply(&self, &collected)
     }
 
     /// All changelog files known to this configuration (the default plus every registered
