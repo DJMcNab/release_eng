@@ -16,43 +16,67 @@
 
 <!-- We use cargo-rdme to update the README with the contents of lib.rs.
 To edit the following section, update it in lib.rs, then run:
-cargo rdme --workspace-project=git-changelog --heading-base-level=0
+cargo rdme --workspace-project=git_changelog
 Full documentation at https://github.com/orium/cargo-rdme -->
 
 <!-- Intra-doc links used in lib.rs should be evaluated here.
 See https://linebender.org/blog/doc-include/ for related discussion. -->
+
+[`Config`]: https://docs.rs/git_changelog/latest/git_changelog/struct.Config.html
+
 <!-- cargo-rdme start -->
 
-A reusable first-draft changelog generator.
+First-draft changelog generation for single-or-multi crate projects, for use as an `xtask`.
 
-Linebender projects keep hand-curated, keep-a-changelog-style `CHANGELOG.md` files: a
-`## [Unreleased]` section, `### Added`/`### Changed`/... subsections, entries suffixed
-`([#1234][] by [@author][])`, and reference-style link definitions collected at the bottom
-of the file.
+This project currently requires that the repository is hosted on GitHub, and uses squash merges.
+This is the process used by Linebender.
+It supports routing changelog entries to all impacted crates for crates in a workspace which
+maintain their own changelogs.
 
-This crate finds the pull requests merged since the last run, extracts their changelog
-sections from their PR bodies, routes each PR to the right changelog file(s) based on which
-paths it touched, and merges the resulting entries into `## [Unreleased]`, sorted by PR
-number. The output is a first draft: a human is expected to curate it afterwards.
+## Usage
 
-The pipeline has three stages:
+In a repository which has this setup as an xtask, run it as:
 
-1. `collect` (impure: talks to `git` and `gh`) gathers everything needed from the outside
-   world into a `Collected` value.
-2. `process` (pure: no I/O at all) takes a `Collected` plus the current contents of the
-   target changelog files and computes the new file contents.
-3. `apply` (impure) does a pre-flight dirty check, reads the current file contents, calls
-   `process`, writes the results, and advances the marker last.
-
-A calling `xtask` looks like:
-
-```rust
-use clap::Parser as _;
-git_changelog::Config::new("linebender/vello", "CHANGELOG.md")
-    .changelog("sparse_strips/vello_cpu/CHANGELOG.md", ["sparse_strips/vello_cpu"])
-    .changelog("sparse_strips/vello_common/CHANGELOG.md", ["sparse_strips/vello_common"])
-    .run(git_changelog::Args::parse())?;
+```sh
+cargo xtask generate-changelog
 ```
+
+After ensuring that you're on the primary branch of the repository.
+Once this command finishes, each CHANGELOG in the repository will have unstaged changes.
+Use these as a starting point to create the new release's changelog.
+
+The entries are collected from a quoted section in each PR which follows a **Changelog** marker.
+To explicitly indicate that a PR does not require a changelog entry, replace this with **Changelog: None**.
+
+The entries will be merged into the 'Unreleased' section of the relevant CHANGELOG, inferred from the
+files changed in the PR.
+You must then manually review these entries, and edit the CHANGELOG based on them.
+
+## Motivation
+
+A traditional workflow for as-you-go changelog generation is for all PRs with relevant
+changes to also edit the CHANGELOG.md file to add their entry.
+However, as we've used this in Linebender, we ran into several issues:
+
+- It isn't clear if a changelog has been forgotten, or if the author intentionally decided it wasn't needed.
+- It's very easy for edits in the CHANGELOG file to generate conflicts.
+- It's possible for CHANGELOG entries to accidentally end up in the wrong place, if a
+  release happens between a PR being opened and merged.
+
+Systems which track in-progress changelogs using in-tree files avoid conflicts, but have issues
+with approachability for users.
+They also require choosing where to store the data.
+This approach avoids this by storing the data in a PR description, which a contributor will already need to fill out.
+Additionally, this gives maintainers a low-friction way to edit the changelog entry for a PR, either before or after merge.
+
+## Setup
+
+See the docs on [`Config`] for detailed setup instructions.
+
+## Inspirations
+
+The workflow in this crate is inspired by the conventions used in the Clippy repository (<https://github.com/rust-lang/rust-clippy>).
+We however automate the process slightly more than is done in Clippy, to make updating changelogs require less manual work.
 
 <!-- cargo-rdme end -->
 

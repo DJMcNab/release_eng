@@ -1,39 +1,60 @@
 // Copyright 2026 the Release Engineering Authors
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-//! A reusable first-draft changelog generator.
+// After you edit the crate's doc comment, run this command, then check README.md for any missing links
+// cargo rdme --workspace-project=git-changelog
+
+//! First-draft changelog generation for single-or-multi crate projects, for use as an `xtask`.
 //!
-//! Linebender projects keep hand-curated, keep-a-changelog-style `CHANGELOG.md` files: a
-//! `## [Unreleased]` section, `### Added`/`### Changed`/... subsections, entries suffixed
-//! `([#1234][] by [@author][])`, and reference-style link definitions collected at the bottom
-//! of the file.
+//! This project currently requires that the repository is hosted on GitHub, and uses squash merges.
+//! This is the process used by Linebender.
+//! It supports routing changelog entries to all impacted crates for crates in a workspace which
+//! maintain their own changelogs.
 //!
-//! This crate finds the pull requests merged since the last run, extracts their changelog
-//! sections from their PR bodies, routes each PR to the right changelog file(s) based on which
-//! paths it touched, and merges the resulting entries into `## [Unreleased]`, sorted by PR
-//! number. The output is a first draft: a human is expected to curate it afterwards.
+//! # Usage
 //!
-//! The pipeline has three stages:
+//! In a repository which has this setup as an xtask, run it as:
 //!
-//! 1. `collect` (impure: talks to `git` and `gh`) gathers everything needed from the outside
-//!    world into a `Collected` value.
-//! 2. `process` (pure: no I/O at all) takes a `Collected` plus the current contents of the
-//!    target changelog files and computes the new file contents.
-//! 3. `apply` (impure) does a pre-flight dirty check, reads the current file contents, calls
-//!    `process`, writes the results, and advances the marker last.
-//!
-//! A calling `xtask` looks like:
-//!
-//! ```no_run
-//! # fn main() -> anyhow::Result<()> {
-//! use clap::Parser as _;
-//! git_changelog::Config::new("linebender/vello", "CHANGELOG.md")
-//!     .changelog("sparse_strips/vello_cpu/CHANGELOG.md", ["sparse_strips/vello_cpu"])
-//!     .changelog("sparse_strips/vello_common/CHANGELOG.md", ["sparse_strips/vello_common"])
-//!     .run(git_changelog::Args::parse())?;
-//! # Ok(())
-//! # }
+//! ```sh
+//! cargo xtask generate-changelog
 //! ```
+//!
+//! After ensuring that you're on the primary branch of the repository.
+//! Once this command finishes, each CHANGELOG in the repository will have unstaged changes.
+//! Use these as a starting point to create the new release's changelog.
+//!
+//! The entries are collected from a quoted section in each PR which follows a **Changelog** marker.
+//! To explicitly indicate that a PR does not require a changelog entry, replace this with **Changelog: None**.
+//!
+//! The entries will be merged into the 'Unreleased' section of the relevant CHANGELOG, inferred from the
+//! files changed in the PR.
+//! You must then manually review these entries, and edit the CHANGELOG based on them.
+//!
+//! # Motivation
+//!
+//! A traditional workflow for as-you-go changelog generation is for all PRs with relevant
+//! changes to also edit the CHANGELOG.md file to add their entry.
+//! However, as we've used this in Linebender, we ran into several issues:
+//!
+//! - It isn't clear if a changelog has been forgotten, or if the author intentionally decided it wasn't needed.
+//! - It's very easy for edits in the CHANGELOG file to generate conflicts.
+//! - It's possible for CHANGELOG entries to accidentally end up in the wrong place, if a
+//!   release happens between a PR being opened and merged.
+//!
+//! Systems which track in-progress changelogs using in-tree files avoid conflicts, but have issues
+//! with approachability for users.
+//! They also require choosing where to store the data.
+//! This approach avoids this by storing the data in a PR description, which a contributor will already need to fill out.
+//! Additionally, this gives maintainers a low-friction way to edit the changelog entry for a PR, either before or after merge.
+//!
+//! # Setup
+//!
+//! See the docs on [`Config`] for detailed setup instructions.
+//!
+//! # Inspirations
+//!
+//! The workflow in this crate is inspired by the conventions used in the Clippy repository (<https://github.com/rust-lang/rust-clippy>).
+//! We however automate the process slightly more than is done in Clippy, to make updating changelogs require less manual work.
 
 mod apply;
 mod coauthors;
@@ -55,32 +76,78 @@ pub struct Args {
     /// Git ref to start the search from.
     ///
     /// Only required on the very first run, when the default changelog has no
-    /// `git-changelog:last-commit` marker yet. Later runs read the marker instead.
+    /// `git-changelog:last-commit` marker yet.
+    /// It is invalid to provide this on later runs.
     #[arg(long)]
     pub since: Option<String>,
 }
 
-/// One or more source roots that route to a single changelog file.
-#[derive(Debug, Clone)]
-pub(crate) struct ChangelogTarget {
-    /// The changelog file this target routes to, repo-root-relative.
-    pub(crate) file: PathBuf,
-    /// Source roots that route a PR's (non-ignored) changed paths to `file`.
-    pub(crate) roots: Vec<PathBuf>,
-}
-
-/// Configuration for a changelog-generation run.
+/// Builder for a changelog generation CLI.
 ///
-/// Build one with [`Config::new`], optionally add extra per-crate changelogs with
-/// [`Config::changelog`] and override the ignored paths with [`Config::ignore_paths`], then call
-/// [`Config::run`].
+/// # Requirements
+///
+/// This requires that your repository is hosted on GitHub.
+/// We currently only support repositories hosted on `github.com`.
+/// The repository may have more than one CHANGELOG file, which are specified
+/// using [`changelog`](Self::changelog).
+///
+/// This tool requires that there workspace has a top-level CHANGELOG file.
+/// This is used for all changes which request a changelog entry but which can't
+/// be routed to a specific crate.
+/// It also assumes that both `git` and the GitHub CLI (`gh`) are installed and available
+/// on `PATH`.
+///
+/// Some files (by default, `Cargo.toml` and `Cargo.lock`) are ignored for routing.
+/// See [`ignore_paths`](Self::ignore_paths) for details.
+///
+/// # Setup
+///
+/// You should set this up as an xtask in your repository.
+/// See <https://github.com/matklad/cargo-xtask> for documentation of the pattern.
+/// A working setup can also be found in <https://github.com/DJMcNab/release_eng>.
+///
+/// The basic steps are to `cargo new xtask`; `cargo add -p xtask generate-changelog clap anyhow`
+/// Then filling the new `xtask/src/main.rs` to call this library with appropriate context, e.g.:
+///
+///  ```no_run
+/// use anyhow::Result;
+/// use clap::{Parser, Subcommand};
+/// use git_changelog::{Args, Config};
+///
+/// #[derive(Parser, Debug)]
+/// #[command(bin_name = "cargo xtask")]
+/// struct Cli {
+///     #[command(subcommand)]
+///     command: Command,
+/// }
+///
+/// #[derive(Subcommand, Debug)]
+/// enum Command {
+///     /// Generate a first-draft changelog from merged pull requests.
+///     GenerateChangelog(Args),
+/// }
+///
+/// fn main() -> Result<()> {
+///     let cli = Cli::parse();
+///     match cli.command {
+///         Command::GenerateChangelog(args) => Config::new("linebender/vello", "CHANGELOG.md")
+///             .changelog(
+///                 "sparse_strips/vello_cpu/CHANGELOG.md",
+///                 ["sparse_strips/vello_cpu"],
+///             )
+///             .run(args),
+///     }
+/// }
+/// ```
+///
+/// You would then also want to add the appropriate entry to your `.cargo/config.toml`.
 #[derive(Debug, Clone)]
+#[must_use = "Does nothing until `run` is called."]
 pub struct Config {
     /// The repository in `owner/name` form.
     pub(crate) repo: String,
-    /// The repo-root-relative path to the primary (catch-all) changelog file.
+    /// The primary changelog file.
     pub(crate) default_changelog: PathBuf,
-    /// Additional registered changelog targets.
     pub(crate) changelogs: Vec<ChangelogTarget>,
     /// Repo-root-relative paths ignored for routing purposes.
     pub(crate) ignore_paths: Vec<PathBuf>,
@@ -89,10 +156,9 @@ pub struct Config {
 impl Config {
     /// Creates a new configuration.
     ///
-    /// `repo` is the GitHub repository in `owner/name` form. `default_changelog` is the
-    /// repo-root-relative path to the primary changelog file: it is required, since it is both
-    /// the catch-all destination (used when no more specific changelog matches a PR) and the
-    /// home of the `git-changelog:last-commit` marker.
+    /// `repo` is the GitHub repository which pull requests are resolved against, in `owner/name` form.
+    /// `default_changelog` is the repo-root-relative path to the primary changelog file.
+    /// This changelog is also used to store which commit the changelog most recently covers.
     pub fn new(repo: impl Into<String>, default_changelog: impl Into<PathBuf>) -> Self {
         Self {
             repo: repo.into(),
@@ -102,11 +168,10 @@ impl Config {
         }
     }
 
-    /// Registers an additional changelog file, routed to by any of the given source roots.
+    /// Registers an additional changelog file.
     ///
-    /// A PR routes to this changelog if any of its (non-ignored) changed paths starts with one
-    /// of `roots`. Roots and the file path are repo-root-relative.
-    #[must_use]
+    /// Changes in any of the source roots in `roots` are routed to this changelog file.
+    /// All paths are relative to the repository root.
     pub fn changelog<R, P>(mut self, file: impl Into<PathBuf>, roots: R) -> Self
     where
         R: IntoIterator<Item = P>,
@@ -119,12 +184,11 @@ impl Config {
         self
     }
 
-    /// Overrides the repo-root-relative paths ignored for routing purposes.
+    /// Sets the files which are ignored for routing purposes.
     ///
-    /// Defaults to `["Cargo.toml", "Cargo.lock"]`. Paths are matched exactly against a PR's
-    /// changed paths (repo-root-relative) -- a nested `crate/Cargo.toml` is *not* ignored by the
-    /// default `Cargo.toml` entry.
-    #[must_use]
+    /// Defaults to `["Cargo.toml", "Cargo.lock"]`.
+    /// This means that if you add a dependency in a PR to a sub crate, the root changelog
+    /// won't have it inserted.
     pub fn ignore_paths<R, P>(mut self, paths: R) -> Self
     where
         R: IntoIterator<Item = P>,
@@ -134,10 +198,10 @@ impl Config {
         self
     }
 
-    /// Runs the full pipeline: `collect` then `apply`.
-    pub fn run(&self, args: Args) -> Result<()> {
-        let collected = collect(self, &args)?;
-        apply(self, &collected)
+    /// Updates all contained changelogs to include all PRs since the last run.
+    pub fn run(self, args: Args) -> Result<()> {
+        let collected = collect(&self, &args)?;
+        apply(&self, &collected)
     }
 
     /// All changelog files known to this configuration (the default plus every registered
@@ -151,6 +215,15 @@ impl Config {
 
 fn default_ignore_paths() -> Vec<PathBuf> {
     vec![PathBuf::from("Cargo.toml"), PathBuf::from("Cargo.lock")]
+}
+
+/// One or more source roots that route to a single changelog file.
+#[derive(Debug, Clone)]
+pub(crate) struct ChangelogTarget {
+    /// The changelog file this target routes to, repo-root-relative.
+    pub(crate) file: PathBuf,
+    /// Source roots that route a PR's (non-ignored) changed paths to `file`.
+    pub(crate) roots: Vec<PathBuf>,
 }
 
 /// Data gathered about a single merged pull request.
